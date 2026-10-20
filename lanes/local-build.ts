@@ -22,7 +22,7 @@ const tmp = mkdtempSync(join(tmpdir(), `adp-${mode}-${epic}-`));
 const outputs = join(tmp, 'outputs');
 writeFileSync(outputs, '');
 const actor = sh('gh', ['api', 'user', '-q', '.login']);
-const plugTag = process.env.PLUGIN_TAG ?? 'plugin-v0.1.0';
+const plugTag = process.env.PLUGIN_TAG ?? 'plugin-v0.1.1';
 const base = { ...process.env, ADP_LOCAL: '1', RUNNER_TEMP: tmp, GITHUB_OUTPUT: outputs, MODE: mode, EPIC: epic, ACTOR: actor, REVISION: a3 ?? '', MILESTONE: a4 ?? '', NOTE: note };
 
 // 1. Refuse unless the person running this is the lead (0019).

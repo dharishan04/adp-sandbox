@@ -31,6 +31,8 @@ test('in a draft-spec run, only that spec\'s cases open up', async ($, on) => {
   expect((own as { deny?: string }).deny).toBeUndefined()
   const other = await $.tool.call({ tool: 'Write', file_path: '/w/repo/app/cases/3/old.spec.ts', content: 'x' })
   expect(String((other as { deny?: string }).deny ?? (other as { text?: string }).text)).toMatch(/locked case file/)
+  const mk = await $.tool.call({ tool: 'Bash', command: 'mkdir -p app/cases/7' })
+  expect((mk as { deny?: string }).deny).toBeUndefined()
   const gate = await $.tool.call({ tool: 'Bash', command: 'echo x >> .github/workflows/gates.yml' })
   expect(String((gate as { deny?: string }).deny ?? (gate as { text?: string }).text)).toMatch(/gate configuration/)
 })

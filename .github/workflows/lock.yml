@@ -1,12 +1,10 @@
-# Lock checks on spec PRs into main. Re-runs when a review is submitted, so the
-# lead's approval is read on the head commit.
+# Lock checks on spec PRs into main. A review re-runs this run (lock-review.yml),
+# so exactly one `lock` result stands on the head commit.
 name: lock
 on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened]
-  pull_request_review:
-    types: [submitted, dismissed]
 permissions: { contents: read, pull-requests: read, issues: read }
 jobs:
   lock:

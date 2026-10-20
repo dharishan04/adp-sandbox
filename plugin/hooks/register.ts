@@ -93,7 +93,7 @@ async function readMode($: EngineInterface) {
   modeRead = true
 }
 
-const allowedInDraft = (rel: string) => !!draftCases && rel.startsWith(draftCases)
+const allowedInDraft = (rel: string) => !!draftCases && (rel.startsWith(draftCases) || rel === draftCases.slice(0, -1))
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
