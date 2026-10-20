@@ -1,0 +1,28 @@
+# Epic-branch PRs opened by the builder App, so the lead can approve them:
+# sync main into epic/<id> after an amendment (Q26), or land the epic on main.
+name: epic
+on:
+  workflow_dispatch:
+    inputs:
+      op: { type: choice, options: [sync, land], required: true }
+      epic: { type: string, required: true }
+permissions: { contents: read }
+jobs:
+  epic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - id: app
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.BUILDER_APP_ID }}
+          private-key: ${{ secrets.BUILDER_APP_KEY }}
+      - run: node lanes/epic-pr.ts
+        env:
+          GH_TOKEN: '${{ steps.app.outputs.token }}'
+          OP: ${{ inputs.op }}
+          EPIC: ${{ inputs.epic }}
+          ACTOR: ${{ github.triggering_actor }}
