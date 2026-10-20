@@ -40,7 +40,12 @@ if (base.startsWith('epic/') && !(await head(base)))
 
 const startSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 if (!(await head(branch))) await api(`/repos/${repo}/git/refs`, { method: 'POST', body: { ref: `refs/heads/${branch}`, sha: startSha } });
-else if (env.RESET_BRANCH) await api(`/repos/${repo}/git/refs/heads/${branch}`, { method: 'PATCH', body: { sha: startSha, force: true } });
+else if (env.RESET_BRANCH) {
+  const r = await api(`/repos/${repo}/git/refs/heads/${branch}`, { method: 'PATCH', body: { sha: startSha, force: true } });
+  console.log(`reset ${branch}: PATCH answered ${r?.object?.sha}`);
+  // Ref reads can lag the write: wait until the branch reads as reset.
+  for (let i = 0; i < 10 && (await head(branch)) !== startSha; i++) await new Promise(res => setTimeout(res, 2000));
+}
 const expected = (await head(branch))!;
 if (expected !== startSha) throw new Error(`${branch} moved during the run (${expected} != ${startSha}); re-run`);
 
