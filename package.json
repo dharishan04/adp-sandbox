@@ -1,0 +1,15 @@
+{
+  "name": "adp-sandbox",
+  "private": true,
+  "type": "module",
+  "workspaces": ["plugin/rules", "app", "lanes"],
+  "scripts": {
+    "test": "npm test -w plugin/rules && npm test -w app",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "tsx": "4.23.15",
+    "@types/node": "^24.0.0"
+  }
+}

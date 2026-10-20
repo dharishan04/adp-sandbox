@@ -1,0 +1,7 @@
+node_modules/
+test-results/
+playwright-report/
+.claude-plugin/types/
+plugin/.claude-plugin/types/
+.DS_Store
+*.log

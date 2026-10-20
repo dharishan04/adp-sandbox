@@ -1,0 +1,35 @@
+openapi: 3.1.0
+info:
+  title: Readings
+  version: 0.1.0
+paths:
+  /sensors/{id}/latest:
+    get:
+      summary: The latest reading of a sensor
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The latest reading
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LatestReading' }
+        '404':
+          description: Unknown sensor
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+components:
+  schemas:
+    LatestReading:
+      type: object
+      required: [sensorId, at, value]
+      properties:
+        sensorId: { type: string }
+        at: { type: string, format: date-time }
+        value: { type: number }
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string, description: 'A machine code, e.g. unknown_sensor' }
