@@ -35,6 +35,11 @@ const log: string[] = [];
 let result: any;
 let usedModel = model;
 const denials: string[] = [];
+process.on('uncaughtException', e => {
+  console.log(`agent crashed: ${String((e as Error)?.message ?? e).slice(0, 1500)}`);
+  process.exit(1);
+});
+try {
 for await (const msg of query({
   prompt: prompts[mode],
   options: {
@@ -64,6 +69,10 @@ for await (const msg of query({
     for (const b of msg.message.content as any[])
       if (b.type === 'tool_result' && JSON.stringify(b.content).includes('delivery guard')) denials.push(JSON.stringify(b.content).slice(0, 300));
   if (msg.type === 'result') result = msg;
+}
+} catch (e) {
+  console.log(`agent failed: ${String((e as Error)?.message ?? e).slice(0, 1500)}`);
+  process.exit(1);
 }
 
 const out = {
