@@ -48,5 +48,6 @@ jobs:
           BRANCH: ${{ steps.auth.outputs.branch }}
           BASE: ${{ steps.auth.outputs.base }}
           BASE_FROM: ${{ steps.auth.outputs.base_from }}
+          RESET_BRANCH: ${{ steps.auth.outputs.reset_branch }}
       - name: delete the handoff branch
         run: git push "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" --delete "$HANDOFF"
