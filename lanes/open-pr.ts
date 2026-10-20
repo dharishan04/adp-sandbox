@@ -63,8 +63,10 @@ const prov = R.provenanceBlock({ role: 'builder', model: agent.model, plugin: ag
 const open: R.Pull[] = await api(`/repos/${repo}/pulls?state=open&head=${repo.split('/')[0]}:${branch}`);
 const summary = [`## Agent summary`, agent.output.summary, '', `**Tests:** ${agent.output.tests}`, ...(agent.output.open_questions?.length ? ['', '**Open questions:**', ...agent.output.open_questions.map((q: string) => `- ${q}`)] : [])].join('\n');
 if (open[0]) {
-  // A later run appends its provenance; earlier runs' records stay.
-  const body = `${open[0].body ?? ''}\n\n---\n${summary}\n\n${prov}`;
+  // A later run appends its provenance; earlier runs' records stay. A rebuild
+  // on a new revision re-points the PR's Spec line (the workflow does it, not the agent).
+  const repointed = mode === 'build' ? (open[0].body ?? '').replace(/^Spec:\s*\d+@r\d+\s*$/m, `Spec: ${id}@r${env.REVISION}`) : (open[0].body ?? '');
+  const body = `${repointed}\n\n---\n${summary}\n\n${prov}`;
   await api(`/repos/${repo}/pulls/${open[0].number}`, { method: 'PATCH', body: { body } });
   console.log(`updated #${open[0].number}`);
 } else {
