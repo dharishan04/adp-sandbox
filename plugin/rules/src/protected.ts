@@ -25,3 +25,18 @@ export function bashWrites(command: string): string[] {
   if (paths.length && writes.test(command)) hits.push(...paths);
   return [...new Set(hits)];
 }
+
+/** Classifies a tool's absolute path against the repo root it sits in. */
+export function classifyAbsolute(root: string, path: string): PathVerdict & { rel: string } {
+  const r = root.replace(/\/+$/, '') + '/';
+  if (root && path.startsWith(r)) return { ...classify(path.slice(r.length)), rel: path.slice(r.length) };
+  // Root unknown or path outside it: judge every suffix, so a guard that never
+  // learned its root still refuses rather than allows.
+  const parts = path.split('/');
+  for (let i = 0; i < parts.length; i++) {
+    const rel = parts.slice(i).join('/');
+    const v = classify(rel);
+    if (v.protected) return { ...v, rel };
+  }
+  return { protected: false, rel: path };
+}

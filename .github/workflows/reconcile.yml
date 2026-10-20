@@ -1,0 +1,19 @@
+# Tag reconciler: on every push to main (a merged Lock PR), make spec/<id>/rN
+# exist, then re-run the gates of open PRs citing that spec.
+name: reconcile
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions: { contents: write, actions: write, pull-requests: read }
+concurrency: reconcile
+jobs:
+  tags:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: node gates/reconcile.ts
+        env: { GH_TOKEN: '${{ github.token }}' }

@@ -1,0 +1,7 @@
+{
+  "name": "adp-sandbox",
+  "owner": { "name": "ADP sandbox (throwaway)" },
+  "plugins": [
+    { "name": "delivery", "source": "./plugin", "description": "Delivery mod, guard hook, and the draft-spec and build skills" }
+  ]
+}

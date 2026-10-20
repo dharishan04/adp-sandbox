@@ -1,0 +1,24 @@
+# /dismiss <F-n> <reason> on a PR: only the spec's human lead closes a finding without a fix.
+name: dismiss
+on:
+  issue_comment:
+    types: [created]
+permissions: { contents: read }
+jobs:
+  dismiss:
+    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/dismiss')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - id: app
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.REVIEWER_APP_ID }}
+          private-key: ${{ secrets.REVIEWER_APP_KEY }}
+      - run: node lanes/dismiss.ts
+        env:
+          GH_TOKEN: '${{ steps.app.outputs.token }}'
+          REVIEWER_LOGIN: ${{ vars.REVIEWER_LOGIN }}

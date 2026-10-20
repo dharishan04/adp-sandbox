@@ -1,2 +1,3 @@
 # Running log of observations (folded into FINDINGS.md)
 - 2026-10-20 local: a mod's hooks module cannot import a file outside its plugin folder, even through a symlink (`claude plugin validate`: "it is outside the plugin's folder" / "no such file under"). The shared rules package therefore lives inside the plugin at plugin/rules, dependency-free. Affects 0026.
+- 2026-10-20 local: a tool.call guard whose `$` call rejects is SKIPPED by the engine (the edit goes through) even with a `.catch` handler: "delivery's tool.call hook was skipped: no implementation for env.get". Every `$` read inside a guard must be wrapped so failure narrows, never widens. Affects 0024 ("hooks are guides, never the only enforcement" holds for this reason).

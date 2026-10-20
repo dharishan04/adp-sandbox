@@ -1,0 +1,40 @@
+# Three gates, one check run each: spec-trace, integrity, app-tests.
+name: gates
+on:
+  pull_request:
+    branches: [main, 'epic/**']
+    types: [opened, synchronize, reopened, edited]
+permissions: { contents: read, pull-requests: read }
+jobs:
+  spec-trace:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: node gates/spec-trace.ts
+        env: { GH_TOKEN: '${{ github.token }}' }
+  integrity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: node gates/integrity.ts
+        env: { GH_TOKEN: '${{ github.token }}' }
+  app-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: npm ci
+      # On a spec PR the new cases are meant to be red; the Lock check owns them.
+      - name: tests
+        working-directory: app
+        run: |
+          if [[ "${{ github.head_ref }}" == draft/* ]]; then npx playwright test tests/; else npx playwright test; fi
+        env: { CI: 'true' }

@@ -1,0 +1,29 @@
+# Reviewer lane (0025, 0027): once per push, on a different model, as the reviewer App.
+name: reviewer
+on:
+  pull_request:
+    branches: [main, 'epic/**']
+    types: [opened, synchronize, reopened]
+permissions: { contents: read }
+concurrency: reviewer-${{ github.event.pull_request.number }}
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: npm ci
+      - id: app
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.REVIEWER_APP_ID }}
+          private-key: ${{ secrets.REVIEWER_APP_KEY }}
+      - run: node lanes/reviewer.ts
+        env:
+          GH_TOKEN: '${{ steps.app.outputs.token }}'
+          ANTHROPIC_API_KEY: '${{ secrets.ANTHROPIC_API_KEY }}'
+          REVIEWER_MODEL: ${{ vars.REVIEWER_MODEL || 'claude-opus-5-5' }}
+          REVIEWER_LOGIN: ${{ vars.REVIEWER_LOGIN }}

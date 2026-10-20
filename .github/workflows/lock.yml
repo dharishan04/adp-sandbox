@@ -1,0 +1,24 @@
+# Lock checks on spec PRs into main. Re-runs when a review is submitted, so the
+# lead's approval is read on the head commit.
+name: lock
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+  pull_request_review:
+    types: [submitted, dismissed]
+permissions: { contents: read, pull-requests: read, issues: read }
+jobs:
+  lock:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: npm ci
+      - run: node gates/lock.ts
+        env:
+          GH_TOKEN: '${{ github.token }}'
+          REVIEWER_LOGIN: '${{ vars.REVIEWER_LOGIN }}'
+          CI: 'true'
