@@ -40,6 +40,7 @@ if (base.startsWith('epic/') && !(await head(base)))
 
 const startSha = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 if (!(await head(branch))) await api(`/repos/${repo}/git/refs`, { method: 'POST', body: { ref: `refs/heads/${branch}`, sha: startSha } });
+else if (env.RESET_BRANCH) await api(`/repos/${repo}/git/refs/heads/${branch}`, { method: 'PATCH', body: { sha: startSha, force: true } });
 const expected = (await head(branch))!;
 if (expected !== startSha) throw new Error(`${branch} moved during the run (${expected} != ${startSha}); re-run`);
 

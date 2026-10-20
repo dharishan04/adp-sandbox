@@ -62,7 +62,12 @@ if (mode === 'draft-spec' || mode === 'probe') {
   out('branch', branch);
   out('base', epic);
   out('base_from', epicSha ? '' : cutFrom);
-  out('checkout', (await branchExists(branch)) ? branch : epicSha ? epic : cutFrom === mainSha ? 'main' : tag);
+  // An existing milestone branch that no longer contains the epic head (the
+  // epic took an amendment) is rebuilt from the epic head: the App resets it.
+  const buildSha = await branchExists(branch);
+  const stale = buildSha && epicSha ? (await api(`/repos/${repo}/compare/${epicSha}...${buildSha}`)).status !== 'ahead' && buildSha !== epicSha : false;
+  out('reset_branch', stale ? '1' : '');
+  out('checkout', buildSha && !stale ? branch : epicSha ? epic : cutFrom === mainSha ? 'main' : tag);
   out('milestone', milestone);
   context.push(`## Locked spec ${tag}`, '', text, '', `## Your milestone: #${milestone}`, '', JSON.stringify(spec.milestones.find(m => m.issue === milestone)));
 } else refuse(`unknown mode ${mode}`);
