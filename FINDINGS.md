@@ -44,6 +44,7 @@ Model spend: about $7 (builder claude-sonnet-5-5, about $0.10–0.22 a run; revi
 11. **0027: the adversarial reviewer earned its place.** On #4 it found a one-request DoS the cases missed: a `__proto__` sensor ID crashes the server through a plain-object lookup, a bug already in the original `/latest`. That drove amendment r2. On #3 it found a case that ignored the sensor, and the missing contract change.
 12. **0020: negative cases can pass vacuously.** The app already 404s unknown routes; only asserting the exact body makes "unknown sensor" red. The skill and the reviewer both caught it.
 13. **0005 / 0022: a rebuild on a new revision is cleaner as a new milestone PR** than a reset of the old branch (resetting the PR's branch through the App's ref update didn't take; not chased).
+15. **Install friction: creating the GitHub Apps was the hardest step for the owner** (an App form, a private key, five secrets and variables, some saved in the wrong place). A product for "any person" can't ask for that: platform-owned published Apps per role (Q25) and one `npx adp init` command. The owner also chose a light, serverless web view over Backstage first (note in the shared notes; supersedes 0003).
 14. **Solo owner:** one person can't approve their own PR, so every person-authored step (a sync, a fix to main) needs an App to author it, or a bypass. Real teams have a second reviewer; the platform should still give every flow step an App author.
 
 ## Where things are
