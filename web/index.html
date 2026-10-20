@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delivery view</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<header class="bar">
+  <div class="wrap">
+    <span class="logo">Delivery</span>
+    <span class="crumb mono" id="crumb">…</span>
+    <div class="bar-right">
+      <label class="switch-wrap" title="Show where each fact on this page lives">
+        <button class="switch" id="srcSwitch" role="switch" aria-checked="false"><span></span></button> Sources
+      </label>
+      <button class="ghost" id="themeBtn" title="Theme: system, light or dark">Theme: system</button>
+    </div>
+  </div>
+</header>
+<section class="ehead">
+  <div class="wrap">
+    <div class="ehead-top">
+      <div class="ehead-title">
+        <h1 id="title"><span class="id">#…</span>Loading the epic from GitHub…</h1>
+        <div class="meta" id="meta"></div>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist">
+      <a class="tab" href="#/overview" data-tab="overview">Module overview</a>
+      <a class="tab" href="#/spec" data-tab="spec">Spec</a>
+      <a class="tab" href="#/gates" data-tab="gates">PR gate report</a>
+      <a class="tab" href="#/trace" data-tab="trace">One-minute trace</a>
+    </nav>
+  </div>
+</section>
+<div class="srcnote" id="srcnote"><div class="wrap">Each fact now shows where it lives. This page stores none of them: it reads GitHub in your browser and derives every stage and verdict with the platform's rules package.</div></div>
+<main class="wrap" id="main"><p class="muted">Starting…</p></main>
+<footer class="wrap foot" id="foot"></footer>
+<script type="module" src="./app.js"></script>
+</body>
+</html>

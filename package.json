@@ -2,7 +2,12 @@
   "name": "adp-sandbox",
   "private": true,
   "type": "module",
-  "workspaces": ["plugin/rules", "app", "lanes"],
+  "workspaces": [
+    "plugin/rules",
+    "app",
+    "lanes",
+    "web"
+  ],
   "scripts": {
     "test": "npm test -w plugin/rules && npm test -w app",
     "typecheck": "tsc -p tsconfig.json --noEmit"

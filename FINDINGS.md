@@ -14,7 +14,7 @@ milestone [#4](https://github.com/dharishan04/adp-sandbox/pull/4) (the reviewer 
 "revision is current" → sync [#6](https://github.com/dharishan04/adp-sandbox/pull/6) → rebuilt milestone [#7](https://github.com/dharishan04/adp-sandbox/pull/7) → epic [#8](https://github.com/dharishan04/adp-sandbox/pull/8) → one commit `293c46e` on main.
 Model spend: about $7 (builder claude-sonnet-5-5, about $0.10–0.22 a run; reviewer claude-opus-5-5, about $0.25–1.63 a round).
 
-## The ten assumptions
+## The assumptions (ten, plus 11 for the light view)
 
 | # | Assumption | Decision | Result | Evidence |
 |---|---|---|---|---|
@@ -28,6 +28,7 @@ Model spend: about $7 (builder claude-sonnet-5-5, about $0.10–0.22 a run; revi
 | 8 | A milestone PR goes into `epic/<id>`, then the epic lands on main as one commit, with rulesets on both | 0022 | **held, with two bypasses** | #7 → `epic/1` (no bypass); #8 `epic/1` → main squashed into one commit `293c46e` (1 parent). The sync #6 and the epic #8 needed the admin bypass (findings 5, 6). Milestone Issue #2 did not auto-close (finding 9). |
 | 9 | The mod and a gate check derive the same stage from one rules package | 0026 | **held** | Gate: `stage (rules package): spec 1@r1 · Build`; the mod's `/trace 4`: `stage spec 1@r1 · Build`. Later `1@r2 · Build`, and `/trace 8` → `spec 1@r2 · Done`. Recorded fixtures (`plugin/rules/test/recorded.unit.ts`) assert Frame, Design, Lock and Done from the real records. The status line wasn't seen on screen. |
 | 10 | The guard hook blocks an agent's edit to a case file, including through Bash | 0024 | **held** | Live probe (Haiku, `delivery@0.1.0`): an Edit on a case, `sed -i` on a case and an append to `.github/workflows/gates.yml` were all refused with the fix-it; `git status` was clean. The integrity gate behind it was never needed against an agent's code change. |
+| 11 | The rules package runs unmodified in a browser | 0029 | **held, with a loader** | `web/` imports `plugin/rules/src/index.ts` with **no change to the package**: it uses only web APIs (`atob`, `TextDecoder`, `fetch` through the `Get` it is handed), because it already had to run inside a mod. But **browsers can't execute TypeScript**, so natively it doesn't load. `web/ts-loader.js` fetches the 11 `.ts` files and strips the types with esbuild-wasm (14 MB wasm, loaded once) in the page, in about 43 ms; nothing is built ahead of time and the server only serves files. All four pages (overview, spec, gate report, trace) work on the real epic in the Claude desktop browser pane, live and unauthenticated. |
 
 ## What the run changed (for the decision records)
 
@@ -47,11 +48,17 @@ Model spend: about $7 (builder claude-sonnet-5-5, about $0.10–0.22 a run; revi
 15. **Install friction: creating the GitHub Apps was the hardest step for the owner** (an App form, a private key, five secrets and variables, some saved in the wrong place). A product for "any person" can't ask for that: platform-owned published Apps per role (Q25) and one `npx adp init` command. The owner also chose a light, serverless web view over Backstage first (note in the shared notes; supersedes 0003).
 14. **Solo owner:** one person can't approve their own PR, so every person-authored step (a sync, a fix to main) needs an App to author it, or a bypass. Real teams have a second reviewer; the platform should still give every flow step an App author.
 
+16. **0029: the light view works as static files over unauthenticated GitHub, with four catches.** (a) The rules package must ship as JavaScript for browsers, or be type-stripped at load (here esbuild-wasm in the page; a release step that emits `.js` beside the `.ts` would remove the 14 MB loader). (b) The Claude desktop browser pane **refuses service workers** (every registration fails, even a `data:` one), so a service-worker loader was dropped for an in-page one. (c) Unauthenticated GitHub allows 60 calls an hour per IP. A full click-through of the four pages costs about 20 calls; responses are cached in memory and localStorage with ETags (10-minute TTL), the footer shows what's left, and `web/snapshot/` (recorded with `gh`, 36 responses) answers only when the limit is hit, labelled. For a team, sign-in (Q30) is not optional: a shared office IP exhausts 60 an hour fast. (d) Unauthenticated reads can't see repo variables, so the reviewer App's identity is view config (`web/config.js`). CORS from the browser to api.github.com just works.
+17. **The rules package's stages are not the harness's seven.** It derives Frame, Design, Lock, Build and Done; Enforce, Transition and Field have no rule and no record (deploys are out of v0, Q23). The view shows those three as "not derived" rather than inventing them. The stage model needs a decision: either the package grows rules (and records) for the last three, or the portal admits a five-stage v0.
+18. **The one-minute trace takes 1.5 seconds** live, unauthenticated (PR #3: change, approver on the latest push, spec revision → tag, agent and model with run links, review rounds, gates, where it landed), and about 10 ms from cache.
+19. **Static-server gotcha in the desktop app:** `python3 -m http.server` died at startup (`os.getcwd()`: Operation not permitted in the launch sandbox). `web/serve.mjs`, a 20-line Node file server with absolute paths, works and sets `application/wasm`.
+
 ## Where things are
 
 - Rules (shared): `plugin/rules/src/`; tests `plugin/rules/test/*.unit.ts` (hand-made and recorded fixtures).
 - Gates: `gates/`. Workflows: `.github/workflows/`. Rulesets: `setup/`.
 - Lanes: `lanes/` (laptop: `local-build.ts`, `local-review.ts`; Apps: `publish`, `post-review`, `epic`, `dismiss`).
+- Light view (0029): `web/` (`index.html`, `app.js`, `github.js`, `ts-loader.js`, `config.js`, `style.css`, `snapshot/`); serve with `node web/serve.mjs` and open http://localhost:8787/web/ (`.claude/launch.json` → `delivery-view`).
 - Plugin and marketplace: `.claude-plugin/marketplace.json` → `plugin/` (skills, the mod and the guard in `hooks/register.ts`, tests in `plugin/tests/`).
 
 ## Teardown (owner)
