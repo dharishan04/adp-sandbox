@@ -14,5 +14,5 @@ jobs:
         with: { persist-credentials: false }
       - uses: actions/setup-node@v4
         with: { node-version: 24 }
-      - run: node gates/lock-rerun.ts
+      - run: node gates/rerun.ts lock.yml
         env: { GH_TOKEN: '${{ github.token }}' }

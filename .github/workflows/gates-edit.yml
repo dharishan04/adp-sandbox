@@ -1,0 +1,18 @@
+# Editing a PR body (say, re-pointing `Spec:`) re-runs the PR's own gates run,
+# so one result per gate stands on the commit.
+name: gates-edit
+on:
+  pull_request:
+    branches: [main, 'epic/**']
+    types: [edited]
+permissions: { contents: read, actions: write }
+jobs:
+  gates-rerun:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: node gates/rerun.ts gates.yml
+        env: { GH_TOKEN: '${{ github.token }}' }
