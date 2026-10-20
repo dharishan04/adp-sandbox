@@ -1,23 +1,36 @@
-// Reviewer lane (0025, 0027): a fresh session on a different Claude model,
-// given the artifact and its context, never the builder's transcript. Once per
-// push; later rounds cover lines changed since plus findings still open; after
-// three rounds the PR goes to the lead. Posts as the reviewer App and sets the
-// `review` check, which only that App can write.
+// Reviewer lane on a laptop (owner's choice): a fresh Claude Code session on a
+// different model, given the artifact and its context, never the builder's
+// transcript. Once per push; later rounds cover lines changed since plus
+// findings still open; after three rounds the PR goes to the lead.
+//   node lanes/local-review.ts <PR>
+// It writes nothing to GitHub. It prints the payload for the post-review
+// workflow, which posts it as the reviewer App and sets the `review` check.
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import * as R from '../plugin/rules/src/index.ts';
 import { api, repo } from '../gates/gh.ts';
-import { currentPull, specIdFromDraft } from '../gates/pr.ts';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { specIdFromDraft } from '../gates/pr.ts';
 import { agentEnv, specForPull } from './common.ts';
-import { setReviewCheck } from './review-check.ts';
 
-const reviewer = process.env.REVIEWER_LOGIN!;
-const model = process.env.REVIEWER_MODEL!;
-const pull = await currentPull();
+process.env.ADP_LOCAL = '1';
+const root = resolve(import.meta.dirname, '..');
+const reviewer = process.env.REVIEWER_LOGIN ?? execFileSync('gh', ['variable', 'get', 'REVIEWER_LOGIN'], { encoding: 'utf8' }).trim();
+const model = process.env.REVIEWER_MODEL ?? 'claude-opus-5-5';
+const pull: R.Pull = await api(`/repos/${repo}/pulls/${process.argv[2]}`);
+const payloadOut = (p: unknown): never => {
+  const b64 = Buffer.from(JSON.stringify(p)).toString('base64');
+  const file = join(mkdtempSync(join(tmpdir(), 'adp-review-')), 'payload.b64');
+  writeFileSync(file, b64);
+  console.log(`\npayload written to ${file}. Post it as the reviewer App:\n  gh workflow run post-review -f pr=${pull.number} -f payload="$(cat ${file})"`);
+  process.exit(0);
+};
 const spec = await specForPull(pull);
 const lead = spec?.human_lead ?? '';
 const comments: R.Comment[] = await api(`/repos/${repo}/issues/${pull.number}/comments?per_page=100`);
 const ledger = R.replayFindings(comments, reviewer, lead);
-const post = (body: string) => api(`/repos/${repo}/issues/${pull.number}/comments`, { method: 'POST', body: { body } });
 
 if (ledger.rounds.some(r => r.sha === pull.head.sha)) {
   console.log(`already reviewed ${pull.head.sha}`);
@@ -27,17 +40,13 @@ if (ledger.rounds.some(r => r.sha === pull.head.sha)) {
 // 0025: the reviewer's model must differ from every builder model in provenance.
 const builders = R.readProvenance(pull.body).filter(p => p.role === 'builder').map(p => p.model);
 if (builders.includes(model)) {
-  await setReviewCheck(pull.head.sha, false, 'reviewer model equals builder model', `Reviewer ${model} also built this PR (${builders.join(', ')}). 0025 needs a different model.`);
+  console.log(`refused: reviewer ${model} also built this PR (${builders.join(', ')}); 0025 needs a different model`);
   process.exit(1);
 }
 
 const round = ledger.rounds.length + 1;
 if (ledger.rounds.length >= R.MAX_ROUNDS) {
-  if (!ledger.handedToLead)
-    await post(R.roundComment({ round, sha: pull.head.sha, opened: [], fixed: [], handedToLead: true }, `**Adversarial review:** ${R.MAX_ROUNDS} rounds done; handed to @${lead}. Open findings close only by \`/dismiss <F-n> <reason>\` from the lead.`));
-  const open = R.openFindings(ledger);
-  await setReviewCheck(pull.head.sha, open.length === 0, `handed to lead: ${open.length} open`, open.map(f => `- ${f.id} ${f.title}`).join('\n') || 'none open');
-  process.exit(0);
+  payloadOut({ pr: pull.number, block: { round, sha: pull.head.sha, opened: [], fixed: [], handedToLead: true }, human: `**Adversarial review:** ${R.MAX_ROUNDS} rounds done; handed to @${lead}. Open findings close only by \`/dismiss <F-n> <reason>\` from the lead.` });
 }
 
 const files: { filename: string; patch?: string }[] = await api(`/repos/${repo}/pulls/${pull.number}/files?per_page=100`);
@@ -80,15 +89,18 @@ const schema = {
   required: ['fixed', 'new_findings', 'verdict'],
 };
 
+const work = join(mkdtempSync(join(tmpdir(), 'adp-review-wt-')), 'work');
+execFileSync('git', ['fetch', '--quiet', 'origin', pull.head.sha], { cwd: root });
+execFileSync('git', ['worktree', 'add', '--quiet', '--detach', work, pull.head.sha], { cwd: root });
+
 let result: any;
 let usedModel = model;
 for await (const msg of query({
   prompt,
   options: {
     model,
-    cwd: process.cwd(),
+    cwd: work,
     settingSources: [],
-    extraArgs: { bare: null },
     env: agentEnv(),
     tools: ['Read', 'Grep', 'Glob'],
     allowedTools: ['Read', 'Grep', 'Glob'],
@@ -102,9 +114,9 @@ for await (const msg of query({
   if (msg.type === 'result') result = msg;
 }
 const out = result?.structured_output as { fixed: string[]; new_findings: { severity: R.Severity; title: string; path?: string; line?: number; detail: string }[]; verdict: string } | undefined;
+execFileSync('git', ['worktree', 'remove', '--force', work], { cwd: root });
 if (!out) {
   console.log(JSON.stringify(result, null, 2));
-  await setReviewCheck(pull.head.sha, false, 'reviewer produced no result', `subtype ${result?.subtype}`);
   process.exit(1);
 }
 
@@ -121,9 +133,6 @@ const human = [
   fixed.length ? `\nRe-checked and fixed: ${fixed.join(', ')}` : '',
   `\nOnly @${lead || 'the human lead'} can close a finding without a fix: \`/dismiss <F-n> <reason>\`.`,
 ].join('\n');
-await post(R.roundComment({ round, sha: pull.head.sha, opened, fixed }, human));
-
-const after = R.replayFindings([...comments, { id: 0, user: { login: reviewer, type: 'Bot' }, body: R.roundComment({ round, sha: pull.head.sha, opened, fixed }, ''), created_at: new Date().toISOString() }], reviewer, lead);
-const blocking = R.openFindings(after);
-await setReviewCheck(pull.head.sha, blocking.length === 0, `round ${round}: ${blocking.length} blocking open`, blocking.map(f => `- ${f.id} [${f.severity}] ${f.title}`).join('\n') || 'nothing blocking', { model: usedModel, cost: result.total_cost_usd });
+console.log(human);
 console.log(JSON.stringify({ round, model: usedModel, cost: result.total_cost_usd, opened, fixed }, null, 2));
+payloadOut({ pr: pull.number, block: { round, sha: pull.head.sha, opened, fixed, model: usedModel, session: result.session_id, cost: result.total_cost_usd }, human });

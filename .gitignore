@@ -5,3 +5,4 @@ playwright-report/
 plugin/.claude-plugin/types/
 .DS_Store
 *.log
+node_modules

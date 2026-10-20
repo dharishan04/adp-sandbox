@@ -10,6 +10,7 @@ const id = process.env.EPIC!;
 const model = process.env.BUILDER_MODEL!;
 const plugin = pinnedPlugin(process.env.PINNED_MARKETPLACE!);
 const context = readFileSync(`${process.env.RUNNER_TEMP}/adp-context.md`, 'utf8');
+const cwd = process.env.ADP_WORKTREE ?? process.cwd();
 
 const prompts: Record<string, string> = {
   'draft-spec': `/delivery:draft-spec ${id} r${process.env.REVISION}\n\n${context}`,
@@ -38,10 +39,12 @@ for await (const msg of query({
   prompt: prompts[mode],
   options: {
     model,
-    cwd: process.cwd(),
+    cwd,
     plugins: [{ type: 'local', path: plugin.path }],
     settingSources: [],
-    extraArgs: { bare: null },
+    // --bare refuses a subscription login (ANTHROPIC_API_KEY or apiKeyHelper only),
+    // so a laptop run is bare-equivalent: no settings files, the plugin loaded explicitly.
+    ...(process.env.ADP_LOCAL ? {} : { extraArgs: { bare: null } }),
     env: agentEnv({ ADP_MODE: mode, ADP_SPEC: id }),
     allowedTools: ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash', 'Skill'],
     disallowedTools: ['WebFetch', 'WebSearch', 'Bash(git push:*)', 'Bash(gh:*)', 'Bash(curl:*)'],

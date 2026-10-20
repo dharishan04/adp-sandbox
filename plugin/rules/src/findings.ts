@@ -19,6 +19,10 @@ export type RoundBlock = {
   opened: Omit<Finding, 'openedRound' | 'closed'>[];
   fixed: string[];
   handedToLead?: boolean;
+  /** Where the reviewer ran: model, session, cost (self-declared from a laptop). */
+  model?: string;
+  session?: string;
+  cost?: number;
 };
 export type Ledger = { findings: Finding[]; rounds: RoundBlock[]; ignored: { who: string; text: string }[]; handedToLead: boolean };
 

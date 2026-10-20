@@ -59,7 +59,7 @@ const c = commit.createCommitOnBranch.commit;
 console.log(`commit ${c.oid} signature ${JSON.stringify(c.signature)}`);
 
 const runUrl = `${env.GITHUB_SERVER_URL}/${repo}/actions/runs/${env.GITHUB_RUN_ID}`;
-const prov = R.provenanceBlock({ role: 'builder', model: agent.model, plugin: agent.plugin, run: env.GITHUB_RUN_ID!, actor: env.ACTOR!, sdk: '0.3.304' }, runUrl);
+const prov = R.provenanceBlock({ role: 'builder', model: agent.model, plugin: agent.plugin, run: env.GITHUB_RUN_ID!, actor: env.ACTOR!, sdk: '0.3.304', where: agent.where ?? 'actions', session: agent.session }, runUrl);
 const open: R.Pull[] = await api(`/repos/${repo}/pulls?state=open&head=${repo.split('/')[0]}:${branch}`);
 const summary = [`## Agent summary`, agent.output.summary, '', `**Tests:** ${agent.output.tests}`, ...(agent.output.open_questions?.length ? ['', '**Open questions:**', ...agent.output.open_questions.map((q: string) => `- ${q}`)] : [])].join('\n');
 if (open[0]) {

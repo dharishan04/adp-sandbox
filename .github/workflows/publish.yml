@@ -1,0 +1,52 @@
+# Publish a laptop builder run (owner's choice: agents run in Claude Code on the
+# lead's laptop). The lead starts this; it re-checks that they are the lead,
+# then commits the handoff branch's changes through the API as the builder App,
+# so the App is the last pusher and the commit is signed.
+name: publish
+on:
+  workflow_dispatch:
+    inputs:
+      handoff: { type: string, required: true, description: 'handoff/<branch> pushed by lanes/local-build.ts' }
+permissions: { contents: write, issues: read, pull-requests: read }
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      HANDOFF: ${{ inputs.handoff }}
+      ACTOR: ${{ github.triggering_actor }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: git fetch --quiet --tags "https://github.com/${{ github.repository }}" "+refs/heads/${HANDOFF}:refs/remotes/origin/${HANDOFF}"
+      - id: prov
+        run: node lanes/publish-prep.ts read
+      - id: auth
+        run: node lanes/authorize.ts
+        env:
+          GH_TOKEN: '${{ github.token }}'
+          MODE: ${{ steps.prov.outputs.mode }}
+          EPIC: ${{ steps.prov.outputs.epic }}
+          REVISION: ${{ steps.prov.outputs.revision }}
+          MILESTONE: ${{ steps.prov.outputs.milestone }}
+      - run: node lanes/publish-prep.ts lay
+        env: { CHECKOUT: '${{ steps.auth.outputs.checkout }}' }
+      - id: app
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.BUILDER_APP_ID }}
+          private-key: ${{ secrets.BUILDER_APP_KEY }}
+      - run: node lanes/open-pr.ts
+        env:
+          GH_TOKEN: '${{ steps.app.outputs.token }}'
+          MODE: ${{ steps.prov.outputs.mode }}
+          EPIC: ${{ steps.prov.outputs.epic }}
+          LEAD: ${{ steps.auth.outputs.lead }}
+          REVISION: ${{ steps.auth.outputs.revision }}
+          MILESTONE: ${{ steps.auth.outputs.milestone }}
+          BRANCH: ${{ steps.auth.outputs.branch }}
+          BASE: ${{ steps.auth.outputs.base }}
+          BASE_FROM: ${{ steps.auth.outputs.base_from }}
+      - name: delete the handoff branch
+        run: git push "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" --delete "$HANDOFF"

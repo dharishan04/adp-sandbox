@@ -1,0 +1,28 @@
+# Hand in a laptop reviewer round; posted as the reviewer App.
+name: post-review
+on:
+  workflow_dispatch:
+    inputs:
+      pr: { type: string, required: true }
+      payload: { type: string, required: true, description: 'base64 printed by lanes/local-review.ts' }
+permissions: { contents: read }
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - id: app
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.REVIEWER_APP_ID }}
+          private-key: ${{ secrets.REVIEWER_APP_KEY }}
+      - run: node lanes/post-review.ts
+        env:
+          GH_TOKEN: '${{ steps.app.outputs.token }}'
+          PR: ${{ inputs.pr }}
+          PAYLOAD: ${{ inputs.payload }}
+          ACTOR: ${{ github.triggering_actor }}
+          REVIEWER_LOGIN: ${{ vars.REVIEWER_LOGIN }}

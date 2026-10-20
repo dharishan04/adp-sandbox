@@ -1,11 +1,29 @@
 // GitHub access for gates and lanes in Actions: fetch with the job's token.
+import { execFileSync } from 'node:child_process';
 import { appendFileSync, readFileSync } from 'node:fs';
 import type { Get } from '../plugin/rules/src/index.ts';
 
-export const repo = process.env.GITHUB_REPOSITORY!;
 const token = process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN;
+// On a laptop there is no job token: calls go through `gh api` as the person
+// signed in to gh. This code never reads that login's token.
+export const repo = process.env.GITHUB_REPOSITORY ?? (token ? '' : execFileSync('gh', ['repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner'], { encoding: 'utf8' }).trim());
+
+function viaGh(path: string, init: { method?: string; body?: unknown }): any {
+  const args = ['api', '-X', init.method ?? 'GET', '-H', 'Accept: application/vnd.github+json', path.replace(/^\//, '')];
+  if (init.body) args.push('--input', '-');
+  try {
+    const out = execFileSync('gh', args, { encoding: 'utf8', input: init.body ? JSON.stringify(init.body) : undefined, stdio: ['pipe', 'pipe', 'pipe'], maxBuffer: 64 << 20 });
+    return out.trim() ? JSON.parse(out) : undefined;
+  } catch (e) {
+    const msg = String((e as { stdout?: string }).stdout ?? '') + String((e as { stderr?: string }).stderr ?? '');
+    const err = new Error(`${init.method ?? 'GET'} ${path}: ${msg.slice(0, 300)}`) as Error & { status: number };
+    err.status = Number(msg.match(/HTTP (\d{3})/)?.[1] ?? (msg.includes('"Not Found"') ? 404 : 0));
+    throw err;
+  }
+}
 
 export async function api(path: string, init: { method?: string; body?: unknown } = {}): Promise<any> {
+  if (!token) return viaGh(path, init);
   const res = await fetch(`https://api.github.com${path}`, {
     method: init.method ?? 'GET',
     headers: {
