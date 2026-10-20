@@ -51,13 +51,18 @@ if (mode === 'draft-spec' || mode === 'probe') {
     const onEpic = await readText(R.specPath(id), epic);
     if (onEpic !== text) refuse(`${epic} does not hold ${tag}'s spec: merge main into ${epic} first (a person's PR; open question Q26)`);
   }
+  // A new epic branch is cut from main when main still holds this exact spec,
+  // so it carries today's gate config; else from the tag (gates frozen at Lock).
+  const mainSpec = await readText(R.specPath(id), 'main');
+  const mainSha = (await branchExists('main'))!;
+  const cutFrom = mainSpec === text ? mainSha : refs.find(r => r.ref === `refs/tags/${tag}`)!.object.sha;
   const branch = `build/${id}-m${milestone}`;
   out('lead', spec.human_lead);
   out('revision', rev);
   out('branch', branch);
   out('base', epic);
-  out('base_from', epicSha ? '' : (refs.find(r => r.ref === `refs/tags/${tag}`)!.object.sha));
-  out('checkout', (await branchExists(branch)) ? branch : epicSha ? epic : tag);
+  out('base_from', epicSha ? '' : cutFrom);
+  out('checkout', (await branchExists(branch)) ? branch : epicSha ? epic : cutFrom === mainSha ? 'main' : tag);
   out('milestone', milestone);
   context.push(`## Locked spec ${tag}`, '', text, '', `## Your milestone: #${milestone}`, '', JSON.stringify(spec.milestones.find(m => m.issue === milestone)));
 } else refuse(`unknown mode ${mode}`);
