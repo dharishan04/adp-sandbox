@@ -24,6 +24,7 @@ const payloadOut = (p: unknown): never => {
   const b64 = Buffer.from(JSON.stringify(p)).toString('base64');
   const file = join(mkdtempSync(join(tmpdir(), 'adp-review-')), 'payload.b64');
   writeFileSync(file, b64);
+  if (process.env.GITHUB_OUTPUT) writeFileSync(`${process.env.RUNNER_TEMP}/review-payload.b64`, b64);
   console.log(`\npayload written to ${file}. Post it as the reviewer App:\n  gh workflow run post-review -f pr=${pull.number} -f payload="$(cat ${file})"`);
   process.exit(0);
 };

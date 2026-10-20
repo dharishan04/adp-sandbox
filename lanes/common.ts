@@ -31,10 +31,10 @@ export function agentEnv(extra: Record<string, string> = {}): Record<string, str
     // On a laptop the agent signs in with the person's Claude Code login, so it
     // keeps the user environment, minus anything that could reach GitHub.
     const env: Record<string, string> = {};
-    for (const [k, v] of Object.entries(process.env)) if (v !== undefined && !/^(GH_|GITHUB_|ANTHROPIC_API_KEY$)|TOKEN/.test(k)) env[k] = v;
+    for (const [k, v] of Object.entries(process.env)) if (v !== undefined && (k === 'CLAUDE_CODE_OAUTH_TOKEN' || !/^(GH_|GITHUB_|ANTHROPIC_API_KEY$)|TOKEN/.test(k))) env[k] = v;
     return { ...env, ...extra };
   }
-  const keep = ['PATH', 'HOME', 'ANTHROPIC_API_KEY', 'RUNNER_TEMP', 'LANG'];
+  const keep = ['PATH', 'HOME', 'ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN', 'RUNNER_TEMP', 'LANG'];
   const env: Record<string, string> = { CI: 'true', ...extra };
   for (const k of keep) if (process.env[k]) env[k] = process.env[k]!;
   return env;

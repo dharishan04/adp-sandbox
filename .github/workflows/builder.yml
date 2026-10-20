@@ -1,0 +1,72 @@
+# Builder lane in Actions (0019, 0024; option A): started by the lead, the agent
+# signs in with the lead's Claude plan token (CLAUDE_CODE_OAUTH_TOKEN), never a
+# GitHub token; the workflow commits through the API as the builder App.
+name: builder
+on:
+  workflow_dispatch:
+    inputs:
+      mode: { type: choice, options: [draft-spec, build, probe], required: true }
+      epic: { type: string, required: true, description: 'epic Issue number' }
+      revision: { type: string, required: false, description: 'build: the locked revision N' }
+      milestone: { type: string, required: false, description: 'build: the milestone sub-issue' }
+      note: { type: string, required: false, description: 'anything the lead wants the agent to know' }
+permissions: { contents: read, issues: read, pull-requests: read }
+concurrency: builder-${{ inputs.epic }}
+env:
+  MODE: ${{ inputs.mode }}
+  EPIC: ${{ inputs.epic }}
+  ACTOR: ${{ github.triggering_actor }}
+  PLUGIN_TAG: ${{ vars.PLUGIN_TAG || 'plugin-v0.1.1' }}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - id: auth
+        run: node lanes/authorize.ts
+        env:
+          GH_TOKEN: '${{ github.token }}'
+          REVISION: ${{ inputs.revision }}
+          MILESTONE: ${{ inputs.milestone }}
+          NOTE: ${{ inputs.note }}
+      - name: check out what the agent works on
+        run: git fetch --tags origin "${{ steps.auth.outputs.checkout }}" && git checkout --detach FETCH_HEAD
+        env: { GIT_TERMINAL_PROMPT: '0' }
+      - run: npm ci
+      # The plugin, pinned by tag, resolved through the marketplace file.
+      - uses: actions/checkout@v4
+        with: { ref: '${{ env.PLUGIN_TAG }}', path: .pinned, persist-credentials: false }
+      - name: agent (no GitHub token in this step)
+        run: node lanes/builder.ts
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: '${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}'
+          BUILDER_MODEL: ${{ vars.BUILDER_MODEL || 'claude-sonnet-5-5' }}
+          PINNED_MARKETPLACE: .pinned
+          REVISION: ${{ steps.auth.outputs.revision }}
+          MILESTONE: ${{ steps.auth.outputs.milestone }}
+          MAX_BUDGET_USD: '2'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: agent-result, path: '${{ runner.temp }}/adp-agent.json' }
+      - id: app
+        if: inputs.mode != 'probe'
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.BUILDER_APP_ID }}
+          private-key: ${{ secrets.BUILDER_APP_KEY }}
+      - name: commit through the API and open the PR (as the builder App)
+        if: inputs.mode != 'probe'
+        run: node lanes/open-pr.ts
+        env:
+          GH_TOKEN: '${{ steps.app.outputs.token }}'
+          LEAD: ${{ steps.auth.outputs.lead }}
+          REVISION: ${{ steps.auth.outputs.revision }}
+          MILESTONE: ${{ steps.auth.outputs.milestone }}
+          BRANCH: ${{ steps.auth.outputs.branch }}
+          BASE: ${{ steps.auth.outputs.base }}
+          BASE_FROM: ${{ steps.auth.outputs.base_from }}
+          RESET_BRANCH: ${{ steps.auth.outputs.reset_branch }}

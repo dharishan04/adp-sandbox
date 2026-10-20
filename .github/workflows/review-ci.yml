@@ -1,0 +1,38 @@
+# Reviewer lane in Actions (option A): the lead starts it; a fresh session on a
+# different model signs in with the lead's plan token, then the reviewer App posts.
+name: review-ci
+on:
+  workflow_dispatch:
+    inputs:
+      pr: { type: string, required: true }
+permissions: { contents: read, pull-requests: read, issues: read }
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0, persist-credentials: false }
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - run: npm ci
+      - name: reviewer agent (reads GitHub with the job token; the agent gets none)
+        run: node lanes/local-review.ts ${{ inputs.pr }}
+        env:
+          GH_TOKEN: '${{ github.token }}'
+          CLAUDE_CODE_OAUTH_TOKEN: '${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}'
+          REVIEWER_LOGIN: ${{ vars.REVIEWER_LOGIN }}
+          REVIEWER_MODEL: ${{ vars.REVIEWER_MODEL || 'claude-opus-5-5' }}
+          MAX_BUDGET_USD: '2'
+      - id: app
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.REVIEWER_APP_ID }}
+          private-key: ${{ secrets.REVIEWER_APP_KEY }}
+      - name: post the round as the reviewer App
+        run: PAYLOAD="$(cat "$RUNNER_TEMP/review-payload.b64")" node lanes/post-review.ts
+        env:
+          GH_TOKEN: '${{ steps.app.outputs.token }}'
+          PR: ${{ inputs.pr }}
+          ACTOR: ${{ github.triggering_actor }}
+          REVIEWER_LOGIN: ${{ vars.REVIEWER_LOGIN }}

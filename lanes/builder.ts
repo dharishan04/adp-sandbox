@@ -44,7 +44,8 @@ for await (const msg of query({
     settingSources: [],
     // --bare refuses a subscription login (ANTHROPIC_API_KEY or apiKeyHelper only),
     // so a laptop run is bare-equivalent: no settings files, the plugin loaded explicitly.
-    ...(process.env.ADP_LOCAL ? {} : { extraArgs: { bare: null } }),
+    // (Likewise in Actions when signed in with a plan token, option A.)
+    ...(process.env.ADP_LOCAL || process.env.CLAUDE_CODE_OAUTH_TOKEN ? {} : { extraArgs: { bare: null } }),
     env: agentEnv({ ADP_MODE: mode, ADP_SPEC: id }),
     allowedTools: ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash', 'Skill'],
     disallowedTools: ['WebFetch', 'WebSearch', 'Bash(git push:*)', 'Bash(gh:*)', 'Bash(curl:*)'],
@@ -66,6 +67,7 @@ for await (const msg of query({
 }
 
 const out = {
+  where: process.env.ADP_LOCAL ? 'laptop' : 'actions',
   mode,
   model: usedModel,
   plugin: plugin.version,
