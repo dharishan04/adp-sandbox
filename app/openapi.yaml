@@ -19,6 +19,29 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
+  /sensors/{id}/history:
+    get:
+      summary: Readings of a sensor over a time range, oldest first
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: from, in: query, required: true, description: 'Inclusive start', schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, description: 'Inclusive end; at most 7 days after from', schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: The readings in the range, oldest first (empty if none)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/History' }
+        '400':
+          description: Range longer than 7 days (range_too_large)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '404':
+          description: Unknown sensor
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
 components:
   schemas:
     LatestReading:
@@ -28,6 +51,19 @@ components:
         sensorId: { type: string }
         at: { type: string, format: date-time }
         value: { type: number }
+    History:
+      type: object
+      required: [sensorId, readings]
+      properties:
+        sensorId: { type: string }
+        readings:
+          type: array
+          items:
+            type: object
+            required: [at, value]
+            properties:
+              at: { type: string, format: date-time }
+              value: { type: number }
     Error:
       type: object
       required: [error]
