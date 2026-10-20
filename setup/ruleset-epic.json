@@ -48,7 +48,8 @@
             "context": "review",
             "integration_id": "REVIEWER_APP_ID"
           }
-        ]
+        ],
+        "do_not_enforce_on_create": true
       }
     }
   ],
