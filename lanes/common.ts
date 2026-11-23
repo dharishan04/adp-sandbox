@@ -2,17 +2,17 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as R from '../plugin/rules/src/index.ts';
-import { readText } from '../gates/gh.ts';
+import { lockAt } from '../gates/gh.ts';
 import { specIdFromDraft } from '../gates/pr.ts';
 
-export async function specForPull(pull: R.Pull): Promise<R.Spec | undefined> {
+/** The lock (spec or 0031 delta) a PR drafts or builds: its head for a spec PR, else the cited tag. */
+export async function specForPull(pull: R.Pull): Promise<R.LockUnit | undefined> {
   const draft = specIdFromDraft(pull.head.ref);
   const cite = R.parseCite(pull.body);
   const id = draft?.id ?? cite?.id;
   if (!id) return undefined;
   const ref = draft ? pull.head.sha : R.tagName(id, cite!.rev);
-  const text = await readText(R.specPath(id), ref);
-  return text ? R.parseSpec(text).spec : undefined;
+  return (await lockAt(id, ref)).unit;
 }
 
 /** Resolves the delivery plugin through the marketplace file of a pinned checkout. */

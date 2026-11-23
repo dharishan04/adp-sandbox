@@ -1,8 +1,8 @@
 import type { EngineInterface, Register } from 'claude-code'
 import {
-  FIX_IT, bashWrites, checkRevisionCurrent, classifyAbsolute, deriveStage, formatStage, gatherEpic,
-  gatherPull, leadApproval, openFindings, parseCite, parseSpec, readFileAt, readProvenance, replayFindings,
-  revisions, specPath, tagName, type Get,
+  DELTA_FILE, FIX_IT, bashWrites, checkRevisionCurrent, classifyAbsolute, deriveStage, formatStage, gatherEpic,
+  gatherPull, leadApproval, openFindings, parseCite, readProvenance, replayFindings,
+  readLockUnit, readersFromGet, revisions, tagName, type Get,
 } from '../rules/src/index.ts'
 
 // The delivery mod (0026) and the one guard hook (0024). Reads GitHub as the
@@ -58,8 +58,10 @@ async function trace($: EngineInterface, arg: string): Promise<string> {
     const stage = deriveStage(cite.id, await gatherEpic(get, repo, cite.id))
     lines.push(`stage     ${formatStage(stage)}`)
     try {
-      const { spec } = parseSpec(await readFileAt(get, repo, specPath(cite.id), tagName(cite.id, cite.rev)))
+      const r = readersFromGet(get, repo)
+      const { unit: spec } = await readLockUnit(r.read, r.list, cite.id, tagName(cite.id, cite.rev))
       if (spec) {
+        lines.push(`locked    ${spec.path} (${spec.kind === 'delta' ? `contract delta, module ${spec.delta!.module}` : 'spec file'})`)
         lines.push(`lead      @${spec.human_lead}: ${leadApproval(reviews, spec.human_lead, pull.head.sha).message}`)
         const ledger = replayFindings(comments, REVIEWER, spec.human_lead)
         const open = openFindings(ledger)
@@ -81,6 +83,7 @@ let root: string | undefined
 // In the builder's draft-spec run (set by the workflow, not the agent), the
 // agent writes the not-yet-locked cases of that one spec; nothing else opens.
 let draftCases: string | undefined
+let draftSpec: string | undefined
 
 let modeRead = false
 
@@ -90,10 +93,16 @@ async function readMode($: EngineInterface) {
   const mode = await $.env.get('ADP_MODE').catch(() => undefined)
   const spec = await $.env.get('ADP_SPEC').catch(() => undefined)
   draftCases = mode === 'draft-spec' && spec && /^\d+$/.test(spec) ? `app/cases/${spec}/` : undefined
+  draftSpec = draftCases ? spec : undefined
   modeRead = true
 }
 
-const allowedInDraft = (rel: string) => !!draftCases && (rel.startsWith(draftCases) || rel === draftCases.slice(0, -1))
+// In draft, the agent writes that spec's cases and its delta files (specs/<id>/*.delta.md,
+// *.openapi.next.yaml), never the living contract or the shape file (0031).
+const allowedInDraft = (rel: string, kind?: string) =>
+  kind === 'case'
+    ? !!draftCases && (rel.startsWith(draftCases) || rel === draftCases.slice(0, -1))
+    : kind === 'contract' && !!draftSpec && DELTA_FILE.exec(rel)?.[1] === draftSpec
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
@@ -123,18 +132,18 @@ export const register: Register = on => {
   // integrity gate in CI is the enforcement behind it.
   on('tool.call', async ($, e, next) => {
     await readMode($)
-    const deny = (path: string, kind: 'case' | 'gate-config') => ({
-      deny: `delivery guard: ${path} is ${kind === 'case' ? 'a locked case file' : 'gate configuration'}. ${FIX_IT[kind]}`,
+    const deny = (path: string, kind: 'case' | 'gate-config' | 'contract') => ({
+      deny: `delivery guard: ${path} is ${kind === 'case' ? 'a locked case file' : kind === 'contract' ? 'the contract' : 'gate configuration'}. ${FIX_IT[kind]}`,
     })
     if (e.tool === 'Edit' || e.tool === 'Write' || e.tool === 'NotebookEdit') {
       const path = e.tool === 'NotebookEdit' ? e.notebook_path : e.file_path
       const v = classifyAbsolute(root ?? '', path)
-      if (v.protected && v.kind && !(v.kind === 'case' && allowedInDraft(v.rel))) return deny(v.rel, v.kind)
+      if (v.protected && v.kind && !allowedInDraft(v.rel, v.kind)) return deny(v.rel, v.kind)
     }
     if (e.tool === 'Bash') {
       for (const hit of bashWrites(e.command)) {
         const v = classifyAbsolute(root ?? '', hit)
-        if (!(v.kind === 'case' && allowedInDraft(v.rel))) return deny(v.rel, v.kind ?? 'gate-config')
+        if (!allowedInDraft(v.rel, v.kind)) return deny(v.rel, v.kind ?? 'gate-config')
       }
     }
     return next(e)

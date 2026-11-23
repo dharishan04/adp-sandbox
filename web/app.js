@@ -28,7 +28,11 @@ const epic = () =>
     return { rec, view: R.deriveStage(EPIC, rec), subs };
   })());
 
-const specAt = rev => R.readFileAt(get, REPO, R.specPath(EPIC), R.tagName(EPIC, rev)).then(t => R.parseSpec(t).spec);
+// The epic's lock at a revision tag, in either format: specs/<id>.md or a 0031 contract delta.
+const specAt = rev => {
+  const r = R.readersFromGet(get, REPO);
+  return R.readLockUnit(r.read, r.list, EPIC, R.tagName(EPIC, rev)).then(x => x.unit);
+};
 const kindOf = p =>
   R.isSpecPull(EPIC, p) ? 'spec' : p.base.ref === R.epicBranch(EPIC) ? (p.head.ref.startsWith('sync/') ? 'sync' : 'milestone') : p.head.ref === R.epicBranch(EPIC) ? 'epic' : 'other';
 const lastApproval = (reviews, login) => [...reviews].reverse().find(r => r.state === 'APPROVED' && (!login || r.user.login.toLowerCase() === login.toLowerCase()));
@@ -130,13 +134,13 @@ async function specPage(arg) {
     : [[], []];
   const approval = pr ? R.leadApproval(reviews, spec.human_lead, pr.head.sha) : { ok: false, message: 'no Lock PR found' };
   const approved = lastApproval(reviews, spec.human_lead);
-  const reqs = R.requirementIds(spec.body);
-  const problems = R.checkConsistency(spec, { atLock: true });
-  const reqText = id => (spec.body.match(new RegExp(`^\\s*[-*]\\s*\\**${id}\\**\\s*(.*)$`, 'm'))?.[1] ?? '').replace(/\*\*/g, '');
-  const clar = (spec.body.split(/^## Clarifications\s*$/m)[1] ?? '').split(/^## /m)[0].trim();
+  const reqs = spec.requirements.map(r => r.id);
+  const problems = R.lockConsistency(spec, { atLock: true });
+  const reqText = id => spec.requirements.find(r => r.id === id)?.text ?? '';
+  const isDelta = spec.kind === 'delta';
   const ledger = R.replayFindings(comments, REVIEWER, spec.human_lead);
   const fileAt = path => html(`/blob/${R.tagName(EPIC, rev)}/${path}`);
-  const where = `specs/${EPIC}.md at tag ${R.tagName(EPIC, rev)}`;
+  const where = `${spec.path} at tag ${R.tagName(EPIC, rev)}`;
 
   return `
   <div class="rev-tabs">${revs.map(n => `<a href="#/spec/r${n}"><button aria-pressed="${n === rev}">r${n}${n === revs.at(-1) ? ' · current' : ''}</button></a>`).join('')}</div>
@@ -152,17 +156,17 @@ async function specPage(arg) {
       </dl>
     </section>
     <section class="card">
-      <h2>Clarifications ${src(`${where} · ## Clarifications`)}</h2>
-      <div class="prose">${clar ? `<ul>${clar.split('\n').filter(l => l.trim()).map(l => `<li>${esc(l.replace(/^\s*[-*]\s*/, ''))}</li>`).join('')}</ul>` : '<p class="muted">None.</p>'}</div>
-      <p class="muted" style="font-size:.85rem">Markers left: ${R.markerCount(spec.body)} ${src('rules package: markerCount')}</p>
+      <h2>${isDelta ? 'Decisions and removals' : 'Clarifications'} ${src(`${where} · ${isDelta ? 'Decided in: links and REMOVED reasons' : '## Clarifications'}`)}</h2>
+      <div class="prose">${spec.notes.length ? `<ul>${spec.notes.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : '<p class="muted">None.</p>'}</div>
+      <p class="muted" style="font-size:.85rem">${isDelta ? `Contract delta for module <code>${esc(spec.delta.module)}</code>, written against <code>${esc(spec.delta.base)}</code> (0031). ` : ''}Markers left: ${R.markerCount(spec.text)} ${src('rules package: markerCount')}</p>
     </section>
   </div>
   <section class="card">
-    <h2>Requirements and coverage ${pill(problems.length ? 'bad' : 'ok', problems.length ? `${problems.length} gap(s)` : 'every requirement has a case and a milestone')} ${src('rules package: requirementIds + checkConsistency(atLock)')}</h2>
-    <div class="tblwrap"><table class="tbl"><tr><th>ID</th><th>Requirement</th>${spec.cases.map(c => `<th>${a(fileAt(c.path), c.path.split('/').pop())}</th>`).join('')}${spec.milestones.map(m => `<th>milestone #${m.issue}</th>`).join('')}</tr>
+    <h2>${isDelta ? 'Rules changed and coverage' : 'Requirements and coverage'} ${pill(problems.length ? 'bad' : 'ok', problems.length ? `${problems.length} gap(s)` : `every ${isDelta ? 'changed rule' : 'requirement'} has a case and a milestone`)} ${src('rules package: readLockUnit + lockConsistency(atLock)')}</h2>
+    <div class="tblwrap"><table class="tbl"><tr><th>ID</th><th>${isDelta ? 'Rule' : 'Requirement'}</th>${spec.cases.map(c => `<th>${a(fileAt(c.path), c.path.split('/').pop())}</th>`).join('')}${spec.milestones.map(m => `<th>milestone #${m.issue}</th>`).join('')}</tr>
     ${reqs.map(id => `<tr><td><code>${id}</code></td><td>${esc(reqText(id))}</td>${spec.cases.map(c => `<td class="c">${c.covers.includes(id) ? '●' : ''}</td>`).join('')}${spec.milestones.map(m => `<td class="c">${m.covers.includes(id) ? '●' : ''}</td>`).join('')}</tr>`).join('')}</table></div>
     ${problems.map(p => `<div class="callout bad">${esc(p.message)} <span>${esc(p.fix)}</span></div>`).join('')}
-    <p class="muted" style="font-size:.85rem">${src(`${where} · front matter cases[] and milestones[]; IDs from the body`)} Cases were red at Lock: the Lock check ran each one ${pr ? a(html(`/pull/${pr.number}/checks`), 'on the Lock PR') : ''}.</p>
+    <p class="muted" style="font-size:.85rem">${src(`${where} · front matter cases[] and milestones[]; IDs from ${isDelta ? 'the ADDED and MODIFIED rules' : 'the body'}`)} Cases were red at Lock: the Lock check ran each one ${pr ? a(html(`/pull/${pr.number}/checks`), 'on the Lock PR') : ''}.</p>
   </section>
   <section class="card">
     <h2>Adversarial review of the spec ${pill(R.openFindings(ledger).length ? 'bad' : 'ok', `${ledger.findings.length} raised, ${R.openFindings(ledger).length} open blocking, ${ledger.rounds.length} round(s)`)} ${src(`PR #${pr?.number} comments: reviewer App round blocks + the lead’s /dismiss`)}</h2>

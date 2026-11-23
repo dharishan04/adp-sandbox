@@ -2,7 +2,7 @@
 //   sync: merge main into epic/<id> through a PR the lead can approve (Q26), after an amendment.
 //   land: open the epic PR epic/<id> → main, its body carrying every milestone's provenance (0022).
 import * as R from '../plugin/rules/src/index.ts';
-import { api, readText, repo } from '../gates/gh.ts';
+import { api, lockAt, readText, repo } from '../gates/gh.ts';
 
 const id = Number(process.env.EPIC);
 const op = process.env.OP!;
@@ -14,7 +14,8 @@ function refuse(why: string): never {
 const refs: R.Ref[] = await api(`/repos/${repo}/git/matching-refs/tags/spec/${id}/`);
 const rev = R.revisions(id, refs).at(-1);
 if (!rev) refuse(`spec ${id} has no locked revision`);
-const spec = R.parseSpec((await readText(R.specPath(id), R.tagName(id, rev)))!).spec!;
+const spec = (await lockAt(id, R.tagName(id, rev))).unit;
+if (!spec) refuse(`${R.tagName(id, rev)} holds no readable spec or delta`);
 if (spec.human_lead.toLowerCase() !== actor.toLowerCase()) refuse(`only @${spec.human_lead} may start this; started by @${actor}`);
 const epic = R.epicBranch(id);
 const head = async (b: string) => api(`/repos/${repo}/git/ref/heads/${b}`).then(r => r.object.sha as string, () => undefined);
@@ -31,6 +32,20 @@ if (op === 'sync') {
   });
   console.log(`opened ${pr.html_url}`);
 } else if (op === 'land') {
+  // 0031: main's contract changes in this merge, so the epic branch must already hold
+  // the fold (contract = main's + the delta; shape = openapi.next). Refuse otherwise.
+  if (spec.delta) {
+    const d = spec.delta;
+    const shape = d.openapi ?? 'app/openapi.yaml';
+    const contractPath = `${shape.replace(/[^/]*$/, '')}contract.md`;
+    const mainText = await readText(contractPath, 'main');
+    const folded = R.foldDelta(d, mainText ? R.parseContract(mainText).contract : undefined);
+    const onEpic = await readText(contractPath, epic);
+    const next = await readText(R.openapiNextPath(d.id, d.module), epic);
+    if (!folded.contract) refuse(`the delta does not fold onto main: ${folded.problems.map(p => p.message).join('; ')}`);
+    if (onEpic !== R.renderContract(folded.contract)) refuse(`${epic}'s ${contractPath} is not main's contract + the delta: run \`npx tsx gates/contract.ts --fold ${id}\` on ${epic} first`);
+    if (next !== undefined) refuse(`${R.openapiNextPath(d.id, d.module)} is still on ${epic}: the fold moves it into ${shape}`);
+  }
   const pulls: R.Pull[] = await api(`/repos/${repo}/pulls?state=closed&base=${encodeURIComponent(epic)}&per_page=100`);
   const merged = pulls.filter(p => p.merged_at);
   const lines = merged.map(p => `- #${p.number} ${p.title}`);

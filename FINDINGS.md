@@ -53,6 +53,64 @@ Model spend: about $7 (builder claude-sonnet-5-5, about $0.10–0.22 a run; revi
 18. **The one-minute trace takes 1.5 seconds** live, unauthenticated (PR #3: change, approver on the latest push, spec revision → tag, agent and model with run links, review rounds, gates, where it landed), and about 10 ms from cache.
 19. **Static-server gotcha in the desktop app:** `python3 -m http.server` died at startup (`os.getcwd()`: Operation not permitted in the launch sandbox). `web/serve.mjs`, a 20-line Node file server with absolute paths, works and sets `application/wasm`.
 
+## Contract-model trial (ADP 0031), steps 1 and 2, local, 23 Nov 2026
+
+Spec 1 re-expressed as a living contract (`app/contract.md`) and a delta (`specs/1/sensors.delta.md`); the rules
+package gained `contract.ts` and `delta.ts` (30 of 30 unit tests, typecheck clean); `gates/contract.ts` runs the checks
+with git alone. Nothing pushed; no workflow changed.
+
+20. **"FR-001 and FR-003 disappear into OpenAPI" was half wrong.** Only their shape did. "Only that sensor, oldest
+    first" and "unknown sensor → 404" are behaviour, so they became SENSORS-R001 and R003. Only FR-006 ("documented in
+    `openapi.yaml`") vanished outright: the operation-link check now does its job. Seven FR/SC items became seven rules.
+21. **The shape file restates behaviour too.** `openapi.yaml`'s descriptions say "Inclusive start" and "at most 7 days
+    after from": the drift 0031 removed from the spec survives in OpenAPI prose. Open: forbid rule-like descriptions,
+    or point them at rule IDs.
+22. **The fold round-trips exactly.** Folding epic 1's delta onto no contract renders a byte-identical
+    `app/contract.md`; on today's tree the delta reads as folded and a second fold is refused. It needs one canonical
+    rule layout (meta lines, blank line, scenarios). The test found a parser bug: a blank line after `#### Now` hid the
+    `Operation:` line.
+23. **Clarifications split three ways.** The 7-day maximum became a module decision
+    (`docs/decisions/0001-history-range-is-at-most-seven-days.md`, linked from R004 and checked to resolve). Why r2
+    exists is history (PR #5). The out-of-scope list belongs on the epic Issue, which was not edited (GitHub write).
+24. **Guard gap, now closed: the contract was not protected.** `app/openapi.yaml`, and any future `contract.md` or
+    delta file, were open to agents; spec 1's builder edited `openapi.yaml` (FR-006). They are now a `contract` kind in
+    `protected.ts`. A draft-spec run may write only its own epic's delta files; the integrity gate allows the living
+    contract to change only on the epic PR into main, where `--epic` checks the content. `plugin/tests/guard.test.ts`
+    was not run here (it needs the mod test harness).
+25. **The skills contradicted the new guard; updated.** `build` told the builder to keep `app/openapi.yaml` in step,
+    and `draft-spec` wrote `specs/<id>.md`. Now `draft-spec` writes `specs/<id>/sensors.delta.md`, an optional
+    `sensors.openapi.next.yaml`, the cases and any decision record; its template parses, checks clean and applies.
+    `build` builds to main's contract plus the delta, puts a disposable `Plan:` first, and reports what turns up under
+    Contract (stop), Outlives the task, or Out of scope (0031 §1).
+26. **The fold is committed by the epic PR's author and verified, not pushed by CI.** CI cannot push past the
+    rulesets, and 0019 already has the epic lane author that PR. `--fold` writes the result; `--epic` proves it.
+27. **"Breaking" is conservative until Q36:** any MODIFIED or REMOVED rule counts as possibly breaking, so on a stable
+    contract it needs a second approver.
+
+28. **One reader for an epic's lock, in either format.** `plugin/rules/src/lockunit.ts` (`readLockUnit`) decides,
+    per ref, whether epic N's lock is `specs/N.md` or `specs/N/<module>.delta.md`. It gives both the same fields: lead,
+    revision, cases, milestones, requirement IDs and text, notes. Seven readers moved to it: the Lock gate, the spec-tag
+    reconciler, the builder lane's context (`authorize.ts`), `common.ts` (the review and dismiss lanes), the epic lane,
+    the mod's `/trace` and the web view. History reads true: at `spec/1/r2` epic 1 is the old spec; with the delta on
+    main it is the delta. 35 of 35 unit tests.
+29. **The Lock gate checks more for a delta.**
+    - It applies to main's contract (IDs and the quoted Was text).
+    - Every rule's operation is declared in the shape the epic will merge (`openapi.next.yaml`, else `openapi.yaml`).
+    - `Decided in:` links resolve.
+    - The living contract and `openapi.yaml` are unchanged from main.
+    - When §11 asks for one, a second human (not the lead, not a bot) approves the latest push.
+
+    Not yet run against a live PR.
+30. **The epic lane refuses to land an unfolded delta**, but doesn't fold it. `land` checks that `epic/N` holds
+    exactly main's contract plus the delta, with no `openapi.next.yaml` left. Committing the fold from the lane (an
+    App commit through the API, as `open-pr.ts` does) is step 3 work; until then someone runs `gates/contract.ts --fold`
+    on the epic branch.
+31. **The web view runs on the new reader**, checked live against GitHub (spec page, r2). Two costs:
+    - Each spec read lists `specs/N/` first. For an epic in the old format that's a 404, so one extra call against the
+      60-an-hour unauthenticated limit. `web/make-snapshot.mjs` doesn't record those listings.
+    - The delta branch of the spec page (rules changed, decisions and removals, base tag) is covered only by unit
+      tests until a delta is on GitHub.
+
 ## Where things are
 
 - Rules (shared): `plugin/rules/src/`; tests `plugin/rules/test/*.unit.ts` (hand-made and recorded fixtures).

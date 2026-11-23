@@ -23,6 +23,20 @@ for (const f of files) {
     lines.push({ ok: !byAgent, message: `${f.filename} is gate config, changed in a PR with agent commits (${[...bots].join(', ') || 'none'})`, fix: R.FIX_IT['gate-config'] });
     continue;
   }
+  if (v.kind === 'contract') {
+    // 0031: a delta file changes only in its own epic's Lock PR; the living contract
+    // and the shape file only on the epic PR into main, where the contract gate
+    // (gates/contract.ts --epic) checks they are exactly main + the delta.
+    const delta = f.filename.match(R.DELTA_FILE);
+    const epicPr = /^epic\/\d+$/.test(pull.head.ref) && pull.base.ref === 'main';
+    const ok = delta ? !!draft && draft.id === Number(delta[1]) : epicPr || !byAgent;
+    lines.push({
+      ok,
+      message: `${f.filename} is the contract: ${delta ? `delta of epic ${delta[1]}` : 'living contract or shape'}, changed in ${pull.head.ref}${ok ? '' : ` with agent commits (${[...bots].join(', ')})`}`,
+      fix: R.FIX_IT.contract,
+    });
+    continue;
+  }
   if (v.kind !== 'case' && !isSpec) continue;
   const id = ownedBy(f.filename);
   if (draft && draft.id === id) {
