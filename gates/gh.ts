@@ -1,7 +1,8 @@
 // GitHub access for gates and lanes in Actions: fetch with the job's token.
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, readFileSync } from 'node:fs';
-import type { Get } from '../plugin/rules/src/index.ts';
+import * as R from '../plugin/rules/src/index.ts';
+type Get = R.Get;
 
 const token = process.env.GH_TOKEN ?? process.env.GITHUB_TOKEN;
 // On a laptop there is no job token: calls go through `gh api` as the person
@@ -77,3 +78,17 @@ export function report(gate: string, lines: { ok: boolean; message: string; fix?
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, md + '\n');
   process.exit(ok ? 0 : 1);
 }
+
+/** File names in a folder at a ref; [] when the folder does not exist there. */
+export async function listDir(dir: string, ref: string): Promise<string[]> {
+  try {
+    const r = await api(`/repos/${repo}/contents/${dir}?ref=${encodeURIComponent(ref)}`);
+    return Array.isArray(r) ? r.filter((e: { type: string }) => e.type === 'file').map((e: { name: string }) => e.name) : [];
+  } catch (e) {
+    if ((e as { status?: number }).status === 404) return [];
+    throw e;
+  }
+}
+
+/** Epic `id`'s lock (spec or delta, 0031) at a ref, through the rules package's one reader. */
+export const lockAt = (id: number, ref: string) => R.readLockUnit(readText, listDir, id, ref);

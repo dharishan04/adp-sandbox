@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "delivery-view",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["/Users/ishandhar/Documents/my-projects/adp-sandbox/web/serve.mjs", "8787"],
+      "port": 8787
+    }
+  ]
+}

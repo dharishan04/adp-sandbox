@@ -8,3 +8,6 @@ export * from './findings.ts';
 export * from './protected.ts';
 export * from './gather.ts';
 export * from './provenance.ts';
+export * from './contract.ts';
+export * from './delta.ts';
+export * from './lockunit.ts';

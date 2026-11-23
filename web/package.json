@@ -1,0 +1,6 @@
+{
+  "name": "@adp/web",
+  "private": true,
+  "type": "module",
+  "devDependencies": { "esbuild-wasm": "0.28.2" }
+}

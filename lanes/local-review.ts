@@ -60,14 +60,14 @@ if (last) {
 const openNow = ledger.findings.filter(f => !f.closed);
 const isSpec = !!specIdFromDraft(pull.head.ref);
 const attack = isSpec
-  ? 'This is a SPEC PR (spec + case files, before Lock). Attack: ambiguity, missing negative cases, contradictions with the existing contract (app/openapi.yaml), invariants with no enforcing mechanism, untestable requirements, and cases that would pass without the feature (tests that test nothing).'
-  : 'This is a CODE PR building a locked spec. Attack: security, contract drift from app/openapi.yaml and the spec, module boundaries, tests that test nothing, and fixes that miss places the rule applies.';
+  ? 'This is a SPEC PR (spec + case files, before Lock). Attack: ambiguity, missing negative cases, contradictions with the existing contract (app/contract.md rules and app/openapi.yaml shape), a delta whose Was text does not match main, invariants with no enforcing mechanism, untestable requirements, and cases that would pass without the feature (tests that test nothing).'
+  : 'This is a CODE PR building a locked spec. Attack: security, contract drift from app/contract.md, app/openapi.yaml and the locked delta, module boundaries, tests that test nothing, and fixes that miss places the rule applies.';
 
 const prompt = [
   `You are the adversarial reviewer for PR #${pull.number} "${pull.title}" (${pull.head.ref} → ${pull.base.ref}), round ${round} of at most ${R.MAX_ROUNDS}.`,
   attack,
   'You comment only. Report a finding only if you would block the merge on it or if it is a real low-severity issue; no style nits. Use the repo checkout (read-only tools) to verify claims before raising them.',
-  spec ? `\n## Spec ${spec.id} r${spec.revision}${isSpec ? ' (proposed)' : ' (locked)'}\n${spec.body}\nCases: ${JSON.stringify(spec.cases)}` : '\n(no spec found for this PR)',
+  spec ? `\n## Spec ${spec.id} r${spec.revision}${isSpec ? ' (proposed)' : ' (locked)'}\n${spec.text}\nCases: ${JSON.stringify(spec.cases)}` : '\n(no spec found for this PR)',
   `\n## Diff of the PR\n${files.map(f => `--- ${f.filename}\n${f.patch ?? '(binary or too large)'}`).join('\n\n')}`,
   last ? `\n## Changed since your last round (${last.sha.slice(0, 7)}): focus here\n${sinceLast}` : '',
   openNow.length ? `\n## Findings still open: re-check each and list it in "fixed" only if the current code really fixes it\n${openNow.map(f => `- ${f.id} [${f.severity}] ${f.title}${f.path ? ` (${f.path}${f.line ? `:${f.line}` : ''})` : ''}`).join('\n')}` : '',

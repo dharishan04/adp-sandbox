@@ -3,16 +3,21 @@
 // a new tag, it re-runs the gates on open PRs citing that spec, because checks
 // do not re-run on their own (and a tag pushed with GITHUB_TOKEN starts no workflow).
 import { execFileSync } from 'node:child_process';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import * as R from '../plugin/rules/src/index.ts';
 import { api, repo } from './gh.ts';
 
 const git = (...a: string[]) => execFileSync('git', a, { encoding: 'utf8' }).trim();
 const created: number[] = [];
 
-for (const f of readdirSync('specs').filter(f => /^\d+\.md$/.test(f))) {
-  const { spec } = R.parseSpec(readFileSync(`specs/${f}`, 'utf8'));
+// Each epic's lock file on main: specs/<id>/<module>.delta.md (0031) or specs/<id>.md.
+const epics = new Set(readdirSync('specs').map(f => f.match(/^(\d+)(\.md)?$/)?.[1]).filter((x): x is string => !!x).map(Number));
+for (const id of epics) {
+  const where = R.lockUnitPath(id, existsSync(`specs/${id}`) ? readdirSync(`specs/${id}`) : []);
+  if (!existsSync(where.path)) continue;
+  const { unit: spec } = R.parseLockUnit(where.path, readFileSync(where.path, 'utf8'));
   if (!spec) continue;
+  const f = where.path.slice('specs/'.length);
   const tag = R.tagName(spec.id, spec.revision);
   // The commit on main where this file last changed: the merge of its Lock PR.
   const sha = git('log', '-1', '--format=%H', '--', `specs/${f}`);
