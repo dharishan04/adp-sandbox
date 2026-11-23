@@ -32,7 +32,7 @@ for (const f of files) {
     const ok = delta ? !!draft && draft.id === Number(delta[1]) : epicPr || !byAgent;
     lines.push({
       ok,
-      message: `${f.filename} is the contract: ${delta ? `delta of epic ${delta[1]}` : 'living contract or shape'}, changed in ${pull.head.ref}${ok ? '' : ` with agent commits (${[...bots].join(', ')})`}`,
+      message: `${f.filename} is the contract: ${delta ? `delta of epic ${delta[1]}` : 'living contract or shape'}, changed in ${pull.head.ref}${ok ? '' : delta ? `, outside epic ${delta[1]}'s own Lock PR (draft/${delta[1]}-rN)` : ` with agent commits (${[...bots].join(', ')})`}`,
       fix: R.FIX_IT.contract,
     });
     continue;

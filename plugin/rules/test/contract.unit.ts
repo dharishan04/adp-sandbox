@@ -9,7 +9,7 @@ const repo = (p: string) => readFileSync(new URL(`../../../${p}`, import.meta.ur
 const contractText = repo('app/contract.md');
 const ops = R.openapiOperations(repo('app/openapi.yaml'));
 const main = () => R.parseContract(contractText).contract!;
-const epic1 = () => R.parseDelta(repo('specs/1/sensors.delta.md')).delta!;
+const epic1 = () => R.parseDelta(repo('plugin/rules/test/fixtures/epic1-sensors.delta.md')).delta!;
 
 // Epic 9 raises the maximum to 30 days. Its Was block is R004 exactly as main has it.
 const r004 = () => R.renderRule(main().rules.find(r => r.id === 'SENSORS-R004')!);
@@ -77,7 +77,7 @@ test('contract checks: unknown operation, reused ID, foreign prefix, rule with n
 });
 
 test("epic 1's delta is consistent, and folding it onto no contract gives exactly app/contract.md", () => {
-  const { delta, problems } = R.parseDelta(repo('specs/1/sensors.delta.md'));
+  const { delta, problems } = R.parseDelta(repo('plugin/rules/test/fixtures/epic1-sensors.delta.md'));
   assert.deepEqual(problems, []);
   assert.equal(delta!.added.length, 7);
   assert.deepEqual(R.checkDelta(delta!), []);

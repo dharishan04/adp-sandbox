@@ -55,7 +55,8 @@ Model spend: about $7 (builder claude-sonnet-5-5, about $0.10–0.22 a run; revi
 
 ## Contract-model trial (ADP 0031), steps 1 and 2, local, 23 Nov 2026
 
-Spec 1 re-expressed as a living contract (`app/contract.md`) and a delta (`specs/1/sensors.delta.md`); the rules
+Spec 1 re-expressed as a living contract (`app/contract.md`) and a delta (now the test fixture
+`plugin/rules/test/fixtures/epic1-sensors.delta.md`, see 32); the rules
 package gained `contract.ts` and `delta.ts` (30 of 30 unit tests, typecheck clean); `gates/contract.ts` runs the checks
 with git alone. Nothing pushed; no workflow changed.
 
@@ -110,6 +111,15 @@ with git alone. Nothing pushed; no workflow changed.
       60-an-hour unauthenticated limit. `web/make-snapshot.mjs` doesn't record those listings.
     - The delta branch of the spec page (rules changed, decisions and removals, base tag) is covered only by unit
       tests until a delta is on GitHub.
+
+32. **The integrity gate refused the trial's own PR (#9), rightly.** `specs/1/sensors.delta.md` was a lock record for
+    epic 1, added outside epic 1's Lock PR. Epic 1 was locked at `spec/1/r2` as `specs/1.md`, so a later delta would
+    rewrite a locked epic's history with no Lock. The same rule protects cases and specs.
+    - **The fix keeps history true:** epic 1 stays in the old format, `app/contract.md` lands as the starting
+      contract (a person's change, allowed), and the delta became a test fixture.
+    - **Migration rule:** an existing module's contract starts as a baseline commit. Epics locked before the switch
+      keep their old record; only new epics write deltas.
+    - **Message bug fixed:** it said "with agent commits ()" when there were none.
 
 ## Where things are
 

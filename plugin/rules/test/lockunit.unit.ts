@@ -6,7 +6,7 @@ import * as R from '../src/index.ts';
 
 const repo = (p: string) => readFileSync(new URL(`../../../${p}`, import.meta.url), 'utf8');
 const oldSpec = repo('specs/1.md');
-const delta = repo('specs/1/sensors.delta.md');
+const delta = repo('plugin/rules/test/fixtures/epic1-sensors.delta.md'); // served at specs/1/ in the fake repo below
 
 // A tiny repo with two refs: the r2 tag holds only specs/1.md; the trial tree also holds the delta.
 const files: Record<string, Record<string, string>> = {

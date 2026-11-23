@@ -17,7 +17,7 @@ milestones:
 ---
 # Delta: epic 1 · Add reading history for a sensor over a time range
 
-Epic 1 (`specs/1.md`, r1 and r2) re-expressed in the 0031 model. It creates the sensors contract (base: none). The shape change, `GET /sensors/{id}/history` and its 400 and 404, was `openapi.next.yaml` until the epic merged; it is now `app/openapi.yaml`.
+A test fixture, never locked: epic 1 (`specs/1.md`, locked at r1 and r2 in the old format) re-expressed in the 0031 model, to prove the fold reproduces `app/contract.md`. It creates the sensors contract (base: none). The shape change, `GET /sensors/{id}/history` and its 400 and 404, was `openapi.next.yaml` until the epic merged; it is now `app/openapi.yaml`.
 
 ## ADDED
 
